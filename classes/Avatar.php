@@ -37,7 +37,7 @@ class Avatar
      * @param integer
      * @return string
      */
-    public static function getMember($intId, $intWidth=null, $intHeight=null)
+    public static function getMember($intId, $intWidth = null, $intHeight = null)
     {
         $objMember = \MemberModel::findByPk($intId);
 
@@ -51,7 +51,7 @@ class Avatar
             return static::getGravatar($objMember->email, $intWidth);
         }
 
-        $strFile = static::find($intId, static::getMemberPath());
+        $strFile = static::find($intId, static::getMemberPath($intId));
 
         // Use placeholder member has no avatar
         if ($strFile == '') {
@@ -78,7 +78,7 @@ class Avatar
      * @param integer
      * @return string
      */
-    public static function getMemberHtml($intId, $intWidth=null, $intHeight=null)
+    public static function getMemberHtml($intId, $intWidth = null, $intHeight = null)
     {
         $strFile = static::getMember($intId, $intWidth, $intHeight);
 
@@ -117,7 +117,7 @@ class Avatar
      * @param integer
      * @return string
      */
-    public static function getUser($intId, $intWidth=null, $intHeight=null)
+    public static function getUser($intId, $intWidth = null, $intHeight = null)
     {
         $objUser = \UserModel::findByPk($intId);
 
@@ -158,7 +158,7 @@ class Avatar
      * @param integer
      * @return string
      */
-    public static function getUserHtml($intId, $intWidth=null, $intHeight=null)
+    public static function getUserHtml($intId, $intWidth = null, $intHeight = null)
     {
         $strFile = static::getUser($intId, $intWidth, $intHeight);
 
@@ -197,7 +197,7 @@ class Avatar
      */
     public static function hasMember($intId)
     {
-        return (static::find($intId, static::getMemberPath()) != '') ? true : false;
+        return (static::find($intId, static::getMemberPath($intId)) != '') ? true : false;
     }
 
     /**
@@ -240,8 +240,35 @@ class Avatar
      * Return the member path
      * @return string
      */
-    public static function getMemberPath()
+    public static function getMemberPath($intId = 0)
     {
+        //For frontend and if user is logged in
+        if (!$intId && FE_USER_LOGGED_IN === true) {
+            $intId =  \FrontendUser::getInstance()->id;
+        }
+
+        //For backend edit member 
+        if (!$intId && \Input::get('id')) {
+            $intId =  \Input::get('id');
+        }
+
+        //Find member's home dir when possible
+        $objMember = \MemberModel::findById($intId);
+        if ($objMember->assignDir) {
+            $objMemberFolder = \FilesModel::findByUuid($objMember->homeDir);
+
+            if (is_dir($objMemberFolder->path)) {
+
+                //be nice put avatar in own directory
+                if (!is_dir($objMemberFolder->path . '/avatar')) {
+                    \Files::getInstance()->mkdir($objMemberFolder->path . '/avatar');
+                }
+
+                return $objMemberFolder->path . '/avatar';
+            }
+        }
+
+        // Fallback to default path        
         static::initFileSystem();
         return static::$strMemberPath;
     }
@@ -293,7 +320,7 @@ class Avatar
     public function dispatchAjaxRequest($strAction, \DataContainer $dc)
     {
         switch ($strAction) {
-            // Upload the file
+                // Upload the file
             case 'avatar_upload':
                 $strField = \Input::post('name');
                 $arrData = $GLOBALS['TL_DCA'][$dc->table]['fields'][$strField]['eval'];
@@ -313,15 +340,16 @@ class Avatar
                 $strFile = $objWidget->validateUpload();
 
                 if ($objWidget->hasErrors()) {
-                    $arrResponse = array('success'=>false, 'error'=>$objWidget->getErrorAsString(), 'preventRetry'=>true);
+                    $arrResponse = array('success' => false, 'error' => $objWidget->getErrorAsString(), 'preventRetry' => true);
                 } else {
-                    $arrResponse = array('success'=>true, 'file'=>$strFile);
+                    $arrResponse = array('success' => true, 'file' => $strFile);
                 }
 
                 echo json_encode($arrResponse);
-                exit; break;
+                exit;
+                break;
 
-            // Reload the widget
+                // Reload the widget
             case 'avatar_reload':
                 $intId = \Input::get('id');
                 $strField = $dc->field = \Input::post('name');
@@ -345,7 +373,7 @@ class Avatar
                 // Load the value
                 if ($intId > 0 && \Database::getInstance()->tableExists($dc->table)) {
                     $objRow = \Database::getInstance()->prepare("SELECT * FROM " . $dc->table . " WHERE id=?")
-                                                      ->execute($intId);
+                        ->execute($intId);
 
                     // The record does not exist
                     if ($objRow->numRows < 1) {
@@ -382,7 +410,8 @@ class Avatar
 
                 $objWidget = new $GLOBALS['BE_FFL']['avatar']($arrAttribs);
                 echo $objWidget->parse();
-                exit; break;
+                exit;
+                break;
         }
     }
 
@@ -395,7 +424,7 @@ class Avatar
         \Input::setGet('no_ajax', 1); // Avoid circular reference
 
         switch (\Input::post('action')) {
-            // Upload the file
+                // Upload the file
             case 'avatar_upload':
                 $arrData['name'] = \Input::post('name');
 
@@ -403,15 +432,16 @@ class Avatar
                 $strFile = $objWidget->validateUpload();
 
                 if ($objWidget->hasErrors()) {
-                    $arrResponse = array('success'=>false, 'error'=>$objWidget->getErrorAsString(), 'preventRetry'=>true);
+                    $arrResponse = array('success' => false, 'error' => $objWidget->getErrorAsString(), 'preventRetry' => true);
                 } else {
-                    $arrResponse = array('success'=>true, 'file'=>$strFile);
+                    $arrResponse = array('success' => true, 'file' => $strFile);
                 }
 
                 echo json_encode($arrResponse);
-                exit; break;
+                exit;
+                break;
 
-            // Reload the widget
+                // Reload the widget
             case 'avatar_reload':
                 $strField = \Input::post('name');
 
@@ -423,7 +453,8 @@ class Avatar
 
                 $objWidget = new $GLOBALS['TL_FFL']['avatar']($arrAttribs);
                 echo $objWidget->parse();
-                exit; break;
+                exit;
+                break;
         }
     }
 
